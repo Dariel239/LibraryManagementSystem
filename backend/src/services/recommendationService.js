@@ -94,12 +94,25 @@ async function getGenerativeRecommendations(genres) {
   }
 }
 
+/** Set of "title|author" (lowercased) for everything this user already owns. */
+async function getOwnedSet(userId) {
+  const { rows } = await pool.query('SELECT title, author FROM books WHERE user_id = $1', [userId]);
+  return new Set(rows.map((r) => `${r.title.toLowerCase()}|${r.author.toLowerCase()}`));
+}
+
+/** Filters out any recommendation matching a book the user already owns (title+author, case-insensitive). */
+function excludeOwned(recommendations, ownedSet) {
+  return recommendations.filter((r) => !ownedSet.has(`${r.title.toLowerCase()}|${r.author.toLowerCase()}`));
+}
+
 async function getRecommendations(userId) {
   const cacheKey = `recommendations:${userId}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
+  const ownedSet = await getOwnedSet(userId);
   const grounded = await getGroundedRecommendations(userId);
+  grounded.recommendations = excludeOwned(grounded.recommendations, ownedSet);
 
   if (grounded.recommendations.length >= MIN_CANDIDATES) {
     cache.set(cacheKey, grounded, RECOMMENDATIONS_TTL_MS);
@@ -115,6 +128,10 @@ async function getRecommendations(userId) {
   );
   const genreNames = topGenres.map((g) => g.genre);
   const generative = await getGenerativeRecommendations(genreNames);
+  // Generative suggestions come purely from the model's own knowledge — it has
+  // no visibility into this user's library, so this filter is the only thing
+  // that stops it from "recommending" a book they already own or have read.
+  generative.recommendations = excludeOwned(generative.recommendations, ownedSet);
 
   const result = {
     source: grounded.recommendations.length > 0 ? 'mixed' : 'generative',
@@ -124,4 +141,10 @@ async function getRecommendations(userId) {
   return result;
 }
 
-module.exports = { getGroundedRecommendations, getGenerativeRecommendations, getRecommendations };
+module.exports = {
+  getGroundedRecommendations,
+  getGenerativeRecommendations,
+  getRecommendations,
+  getOwnedSet,
+  excludeOwned,
+};

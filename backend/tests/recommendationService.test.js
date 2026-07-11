@@ -98,17 +98,38 @@ describe('getGroundedRecommendations', () => {
   });
 });
 
+describe('excludeOwned', () => {
+  const { excludeOwned } = require('../src/services/recommendationService');
+
+  it('removes a recommendation matching an owned title+author, case-insensitively', () => {
+    const owned = new Set(['dune|frank herbert']);
+    const recs = [
+      { title: 'Dune', author: 'Frank Herbert' },
+      { title: 'Foundation', author: 'Isaac Asimov' },
+    ];
+    expect(excludeOwned(recs, owned)).toEqual([{ title: 'Foundation', author: 'Isaac Asimov' }]);
+  });
+
+  it('keeps a same-titled book by a different author', () => {
+    const owned = new Set(['emma|jane austen']);
+    const recs = [{ title: 'Emma', author: 'Some Other Author' }];
+    expect(excludeOwned(recs, owned)).toHaveLength(1);
+  });
+});
 describe('getRecommendations (source selection)', () => {
   afterEach(() => jest.clearAllMocks());
 
   it('uses grounded results when there are enough candidates (>=3)', async () => {
-    pool.query.mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi', count: '3' }] }).mockResolvedValueOnce({
-      rows: [
-        { title: 'A', author: 'X', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
-        { title: 'B', author: 'Y', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
-        { title: 'C', author: 'Z', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
-      ],
-    });
+    pool.query
+      .mockResolvedValueOnce({ rows: [] }) // owned set (user owns nothing, for simplicity)
+      .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi', count: '3' }] }) // top genres
+      .mockResolvedValueOnce({
+        rows: [
+          { title: 'A', author: 'X', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
+          { title: 'B', author: 'Y', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
+          { title: 'C', author: 'Z', genre: 'Sci-Fi', avg_rating: '4.0', copies: '1' },
+        ],
+      });
 
     const result = await getRecommendations(1);
     expect(result.source).toBe('grounded');
@@ -117,6 +138,7 @@ describe('getRecommendations (source selection)', () => {
 
   it('falls back to generative (marked unverified) when grounded candidates are insufficient', async () => {
     pool.query
+      .mockResolvedValueOnce({ rows: [] }) // owned set
       .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi', count: '1' }] }) // top genres (grounded)
       .mockResolvedValueOnce({ rows: [] }) // candidates: none found
       .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi' }] }); // top genres again for generative
@@ -124,5 +146,30 @@ describe('getRecommendations (source selection)', () => {
     const result = await getRecommendations(1);
     expect(result.source).toBe('generative');
     expect(result.recommendations[0].unverified).toBe(true);
+  });
+
+  it('filters out a generative suggestion that matches a book the user already owns', async () => {
+    // The mocked OpenAI client above always suggests "Neuromancer" by William Gibson.
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ title: 'Neuromancer', author: 'William Gibson' }] }) // owned set: user already owns it
+      .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi', count: '1' }] }) // top genres (grounded)
+      .mockResolvedValueOnce({ rows: [] }) // no grounded candidates
+      .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi' }] }); // top genres for generative
+
+    const result = await getRecommendations(1);
+
+    // the AI suggested a book the user already owns — it must be filtered out, not shown
+    expect(result.recommendations.find((r) => r.title === 'Neuromancer')).toBeUndefined();
+  });
+
+  it('keeps a generative suggestion the user does not already own', async () => {
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ title: 'Some Other Book', author: 'Some Other Author' }] }) // owned set
+      .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi', count: '1' }] })
+      .mockResolvedValueOnce({ rows: [] })
+      .mockResolvedValueOnce({ rows: [{ genre: 'Sci-Fi' }] });
+
+    const result = await getRecommendations(1);
+    expect(result.recommendations.find((r) => r.title === 'Neuromancer')).toBeDefined();
   });
 });
