@@ -1,17 +1,24 @@
 const BookModel = require('../models/bookModel');
 const cache = require('../services/cache');
 const { parsePagination, buildMeta } = require('../utils/pagination');
+const { parseListQuery } = require('../utils/listQuery');
 const { checkLengths } = require('../utils/validation');
 
 async function listBooks(req, res) {
   try {
     const { page, limit } = parsePagination(req.query);
+    const { search, sortBy, sortColumn, sortDir } = parseListQuery(req.query);
     const { rows, total } =
       req.user.role === 'admin'
-        ? await BookModel.findAll({ page, limit })
-        : await BookModel.findByUser(req.user.id, { page, limit });
+        ? await BookModel.findAll({ page, limit, search, sortColumn, sortDir })
+        : await BookModel.findByUser(req.user.id, { page, limit, search, sortColumn, sortDir });
 
-    res.json({ books: rows, pagination: buildMeta({ page, limit, total }) });
+    res.json({
+      books: rows,
+      pagination: buildMeta({ page, limit, total }),
+      sort: { sortBy, sortDir: sortDir.toLowerCase() },
+      search,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch books' });

@@ -88,6 +88,20 @@ describe('Auth routes', () => {
 
       expect(res.status).toBe(409);
     });
+
+    it('rejects a weak password', async () => {
+      UserModel.findByEmail.mockResolvedValue(undefined);
+      UserModel.countAll.mockResolvedValue(1);
+
+      const res = await request(app).post('/api/auth/register').send({
+        name: 'Ada',
+        email: 'ada2@example.com',
+        password: 'weak',
+      });
+
+      expect(res.status).toBe(400);
+      expect(UserModel.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /api/auth/login', () => {
@@ -140,6 +154,81 @@ describe('Auth routes', () => {
       });
 
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('PUT /api/auth/me — update profile', () => {
+    it('updates the authenticated user\'s name', async () => {
+      const jwt = require('jsonwebtoken');
+      UserModel.updateName.mockResolvedValue({ id: 1, name: 'New Name', email: 'ada@example.com', role: 'user' });
+
+      const token = jwt.sign({ id: 1, email: 'ada@example.com', role: 'user' }, process.env.JWT_SECRET);
+      const res = await request(app)
+        .put('/api/auth/me')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: 'New Name' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.user.name).toBe('New Name');
+      expect(UserModel.updateName).toHaveBeenCalledWith(1, 'New Name');
+    });
+
+    it('rejects an empty name', async () => {
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign({ id: 1, email: 'ada@example.com', role: 'user' }, process.env.JWT_SECRET);
+
+      const res = await request(app)
+        .put('/api/auth/me')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ name: '   ' });
+
+      expect(res.status).toBe(400);
+    });
+  });
+
+  describe('PUT /api/auth/me/password — change password', () => {
+    it('changes the password when the current password is correct', async () => {
+      const jwt = require('jsonwebtoken');
+      const bcrypt = require('bcryptjs');
+      const hashedCurrent = await bcrypt.hash('oldPassword123', 10);
+      UserModel.findByEmail.mockResolvedValue({ id: 1, email: 'ada@example.com', password: hashedCurrent });
+
+      const token = jwt.sign({ id: 1, email: 'ada@example.com', role: 'user' }, process.env.JWT_SECRET);
+      const res = await request(app)
+        .put('/api/auth/me/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ currentPassword: 'oldPassword123', newPassword: 'newPassword456' });
+
+      expect(res.status).toBe(200);
+      expect(UserModel.updatePassword).toHaveBeenCalledWith(1, expect.any(String));
+    });
+
+    it('rejects when the current password is wrong', async () => {
+      const jwt = require('jsonwebtoken');
+      const bcrypt = require('bcryptjs');
+      const hashedCurrent = await bcrypt.hash('oldPassword123', 10);
+      UserModel.findByEmail.mockResolvedValue({ id: 1, email: 'ada@example.com', password: hashedCurrent });
+
+      const token = jwt.sign({ id: 1, email: 'ada@example.com', role: 'user' }, process.env.JWT_SECRET);
+      const res = await request(app)
+        .put('/api/auth/me/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ currentPassword: 'wrongOldPassword', newPassword: 'newPassword456' });
+
+      expect(res.status).toBe(401);
+      expect(UserModel.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('rejects a weak new password', async () => {
+      const jwt = require('jsonwebtoken');
+      const token = jwt.sign({ id: 1, email: 'ada@example.com', role: 'user' }, process.env.JWT_SECRET);
+
+      const res = await request(app)
+        .put('/api/auth/me/password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ currentPassword: 'oldPassword123', newPassword: 'weak' });
+
+      expect(res.status).toBe(400);
     });
   });
 });

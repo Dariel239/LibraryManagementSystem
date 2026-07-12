@@ -1,4 +1,22 @@
-const { checkLengths } = require('../src/utils/validation');
+const { checkLengths, checkPasswordStrength } = require('../src/utils/validation');
+
+describe('checkPasswordStrength', () => {
+  it('accepts a strong password (8+ chars, letter + number)', () => {
+    expect(checkPasswordStrength('securePass123')).toBeNull();
+  });
+
+  it('rejects a password under 8 characters', () => {
+    expect(checkPasswordStrength('abc123')).toMatch(/at least 8 characters/);
+  });
+
+  it('rejects a password with no letters', () => {
+    expect(checkPasswordStrength('12345678')).toMatch(/at least one letter/);
+  });
+
+  it('rejects a password with no numbers', () => {
+    expect(checkPasswordStrength('abcdefgh')).toMatch(/at least one number/);
+  });
+});
 
 describe('checkLengths', () => {
   it('returns null when all fields are within bounds', () => {

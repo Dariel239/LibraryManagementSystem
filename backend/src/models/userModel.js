@@ -47,6 +47,19 @@ const UserModel = {
     return Number(result.rows[0].count);
   },
 
+  async updateName(id, name) {
+    const result = await pool.query(
+      `UPDATE users SET name = $1, updated_at = NOW() WHERE id = $2
+       RETURNING id, name, email, role, created_at`,
+      [name, id]
+    );
+    return result.rows[0];
+  },
+
+  async updatePassword(id, hashedPassword) {
+    await pool.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, id]);
+  },
+
   async delete(id) {
     await pool.query('DELETE FROM users WHERE id = $1', [id]);
   },

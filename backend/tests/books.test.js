@@ -37,7 +37,13 @@ describe('Book routes', () => {
         .set('Authorization', `Bearer ${tokenFor(regularUser)}`);
 
       expect(res.status).toBe(200);
-      expect(BookModel.findByUser).toHaveBeenCalledWith(1, { page: 1, limit: 20 });
+      expect(BookModel.findByUser).toHaveBeenCalledWith(1, {
+        page: 1,
+        limit: 20,
+        search: '',
+        sortColumn: 'books.created_at',
+        sortDir: 'DESC',
+      });
       expect(BookModel.findAll).not.toHaveBeenCalled();
       expect(res.body.books).toHaveLength(1);
       expect(res.body.pagination).toEqual({ page: 1, limit: 20, total: 1, totalPages: 1 });
@@ -57,7 +63,13 @@ describe('Book routes', () => {
         .set('Authorization', `Bearer ${tokenFor(adminUser)}`);
 
       expect(res.status).toBe(200);
-      expect(BookModel.findAll).toHaveBeenCalledWith({ page: 1, limit: 20 });
+      expect(BookModel.findAll).toHaveBeenCalledWith({
+        page: 1,
+        limit: 20,
+        search: '',
+        sortColumn: 'books.created_at',
+        sortDir: 'DESC',
+      });
       expect(res.body.books).toHaveLength(2);
     });
 
@@ -69,8 +81,58 @@ describe('Book routes', () => {
         .set('Authorization', `Bearer ${tokenFor(regularUser)}`);
 
       expect(res.status).toBe(200);
-      expect(BookModel.findByUser).toHaveBeenCalledWith(1, { page: 2, limit: 10 });
+      expect(BookModel.findByUser).toHaveBeenCalledWith(1, {
+        page: 2,
+        limit: 10,
+        search: '',
+        sortColumn: 'books.created_at',
+        sortDir: 'DESC',
+      });
       expect(res.body.pagination).toEqual({ page: 2, limit: 10, total: 45, totalPages: 5 });
+    });
+
+    it('passes a search term through to the model', async () => {
+      BookModel.findByUser.mockResolvedValue({ rows: [], total: 0 });
+
+      const res = await request(app)
+        .get('/api/books?search=dune')
+        .set('Authorization', `Bearer ${tokenFor(regularUser)}`);
+
+      expect(res.status).toBe(200);
+      expect(BookModel.findByUser).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ search: 'dune' })
+      );
+      expect(res.body.search).toBe('dune');
+    });
+
+    it('passes a valid sortBy/sortDir through to the model', async () => {
+      BookModel.findByUser.mockResolvedValue({ rows: [], total: 0 });
+
+      const res = await request(app)
+        .get('/api/books?sortBy=price&sortDir=asc')
+        .set('Authorization', `Bearer ${tokenFor(regularUser)}`);
+
+      expect(res.status).toBe(200);
+      expect(BookModel.findByUser).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ sortColumn: 'books.price', sortDir: 'ASC' })
+      );
+      expect(res.body.sort).toEqual({ sortBy: 'price', sortDir: 'asc' });
+    });
+
+    it('ignores an invalid sortBy and falls back to created_at', async () => {
+      BookModel.findByUser.mockResolvedValue({ rows: [], total: 0 });
+
+      const res = await request(app)
+        .get('/api/books?sortBy=password')
+        .set('Authorization', `Bearer ${tokenFor(regularUser)}`);
+
+      expect(res.status).toBe(200);
+      expect(BookModel.findByUser).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ sortColumn: 'books.created_at' })
+      );
     });
   });
 

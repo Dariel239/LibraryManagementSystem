@@ -29,7 +29,9 @@ export default function NavBar() {
           </nav>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted">{user?.name}</span>
+          <NavLink to="/profile" className="text-sm text-muted hover:text-primary transition-colors">
+            {user?.name}
+          </NavLink>
           <button
             onClick={handleLogout}
             className="text-sm font-medium text-muted hover:text-primary transition-colors"

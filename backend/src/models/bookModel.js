@@ -11,29 +11,48 @@ const BookModel = {
     return result.rows[0];
   },
 
-  async findByUser(userId, { page = 1, limit = 20 } = {}) {
+  async findByUser(userId, { page = 1, limit = 20, search = '', sortColumn = 'books.created_at', sortDir = 'DESC' } = {}) {
     const offset = (page - 1) * limit;
+    const params = [userId];
+    let whereSQL = 'WHERE user_id = $1';
+
+    if (search) {
+      params.push(`%${search}%`);
+      whereSQL += ` AND (title ILIKE $${params.length} OR author ILIKE $${params.length})`;
+    }
+
+    params.push(limit, offset);
     const result = await pool.query(
       `SELECT *, COUNT(*) OVER() AS total_count FROM books
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [userId, limit, offset]
+       ${whereSQL}
+       ORDER BY ${sortColumn} ${sortDir}
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
     );
     const total = result.rows[0] ? Number(result.rows[0].total_count) : 0;
     const rows = result.rows.map(({ total_count, ...row }) => row);
     return { rows, total };
   },
 
-  async findAll({ page = 1, limit = 20 } = {}) {
+  async findAll({ page = 1, limit = 20, search = '', sortColumn = 'books.created_at', sortDir = 'DESC' } = {}) {
     const offset = (page - 1) * limit;
+    const params = [];
+    let whereSQL = '';
+
+    if (search) {
+      params.push(`%${search}%`);
+      whereSQL = `WHERE (books.title ILIKE $${params.length} OR books.author ILIKE $${params.length})`;
+    }
+
+    params.push(limit, offset);
     const result = await pool.query(
       `SELECT books.*, users.name AS owner_name, COUNT(*) OVER() AS total_count
        FROM books
        JOIN users ON books.user_id = users.id
-       ORDER BY books.created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
+       ${whereSQL}
+       ORDER BY ${sortColumn} ${sortDir}
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
     );
     const total = result.rows[0] ? Number(result.rows[0].total_count) : 0;
     const rows = result.rows.map(({ total_count, ...row }) => row);

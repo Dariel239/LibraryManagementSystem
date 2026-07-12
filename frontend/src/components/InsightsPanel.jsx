@@ -1,6 +1,10 @@
+import { GenreBarChart, StatusPieChart } from './DashboardCharts';
+
 export default function InsightsPanel({ data }) {
   if (!data) return null;
   const { stats, insights } = data;
+
+  const genreData = stats.scope === 'admin' ? stats.top_genres_library_wide : stats.top_genres;
 
   return (
     <div className="bg-surface border border-border rounded-xl p-6">
@@ -17,6 +21,23 @@ export default function InsightsPanel({ data }) {
           </li>
         ))}
       </ul>
+
+      {(genreData?.length > 0 || stats.status_breakdown?.length > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5 pt-4 border-t border-border">
+          {genreData?.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted mb-1">Top genres</p>
+              <GenreBarChart genres={genreData} />
+            </div>
+          )}
+          {stats.status_breakdown?.length > 0 && (
+            <div>
+              <p className="text-xs font-medium text-muted mb-1">Reading status</p>
+              <StatusPieChart statusBreakdown={stats.status_breakdown} />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-4 border-t border-border">
         {stats.scope === 'admin' ? (

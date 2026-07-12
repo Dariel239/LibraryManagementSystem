@@ -1,15 +1,18 @@
 import { useState, useEffect } from 'react';
 import AppLayout from '../components/AppLayout';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { adminService } from '../services/entities';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function AdminPage() {
   const { user: currentUser } = useAuth();
+  const { showToast } = useToast();
   const [users, setUsers] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     loadUsers(1);
@@ -29,15 +32,16 @@ export default function AdminPage() {
     }
   }
 
-  async function handleDelete(user) {
-    if (!confirm(`Delete ${user.name}'s account? This will also permanently delete all of their books. This can't be undone.`)) return;
-    setActionError('');
+  async function handleDeleteConfirmed() {
+    const user = confirmDelete;
+    setConfirmDelete(null);
     try {
       await adminService.deleteUser(user.id);
+      showToast(`${user.name}'s account deleted`);
       const nextPage = users.length === 1 && pagination.page > 1 ? pagination.page - 1 : pagination.page;
       loadUsers(nextPage);
     } catch (err) {
-      setActionError(err.response?.data?.error || 'Could not delete this user.');
+      showToast(err.response?.data?.error || 'Could not delete this user.', 'error');
     }
   }
 
@@ -48,11 +52,6 @@ export default function AdminPage() {
 
       {loading && <p className="text-muted text-sm">Loading users…</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {actionError && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2 mb-4">
-          {actionError}
-        </p>
-      )}
 
       {!loading && !error && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -82,7 +81,7 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-right">
                     {u.id !== currentUser?.id && (
                       <button
-                        onClick={() => handleDelete(u)}
+                        onClick={() => setConfirmDelete(u)}
                         className="text-sm font-medium text-muted hover:text-red-600 transition-colors"
                       >
                         Delete
@@ -116,6 +115,15 @@ export default function AdminPage() {
             Next →
           </button>
         </div>
+      )}
+
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete this user?"
+          message={`${confirmDelete.name}'s account and all of their books will be permanently deleted. This can't be undone.`}
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setConfirmDelete(null)}
+        />
       )}
     </AppLayout>
   );
