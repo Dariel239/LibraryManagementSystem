@@ -1,66 +1,95 @@
 # Shelf — Library Management System
 
-A full-stack library management app with AI-powered features: a natural-language
-Query Agent, auto-generated Library Insights, and a Recommendation Engine.
+A full-stack web application for managing a personal book library, featuring three
+distinct AI-powered capabilities: a natural-language Query Agent, auto-generated
+Library Insights, and a Recommendation Engine — each built with a deliberate
+safety-first integration pattern rather than a generic AI wrapper.
 
-## Stack
-- **Backend**: Node.js, Express, PostgreSQL
-- **Frontend**: React (Vite), Tailwind CSS
-- **AI**: Groq API (OpenAI-compatible), `openai/gpt-oss-120b`
+**Live demo:** https://library-frontend-h526.onrender.com
+*(hosted on a free tier — the first request after a period of inactivity may take
+30–60 seconds to wake up)*
 
-## Features
-- User registration/login (JWT), first registered user auto-becomes admin
-- Book CRUD scoped to the logged-in user (or all books for admins)
-- Admin dashboard: manage all users and books
-- **AI Query Agent** — ask questions like "who owns the most books?" in plain English,
-  get back a formatted table + summary. Grounded via a whitelist-validated SQL builder,
-  never raw LLM-generated SQL.
-- **Library Insights** — auto-generated reading habit summaries (per-user or library-wide for admins)
-- **Recommendation Engine** — genre-based suggestions, grounded in real library data first,
-  falling back to AI-generated (clearly labeled "unverified") suggestions only when there
-  isn't enough data
+---
 
-## Quick start (local, no Docker)
+## Key Features
 
-**One-time setup:**
+- **Authentication & Authorization** — JWT-based auth with bcrypt password hashing,
+  role-based access control (user vs. admin), and enforced server-side ownership
+  checks on every write operation
+- **Book Management** — full CRUD with search, sort, and pagination, scoped to the
+  logged-in user (admins see and manage every book across the system)
+- **Admin Dashboard** — manage all registered users and books, with built-in
+  safeguards (an admin can't delete their own account or the last remaining admin)
+- **AI Query Agent** — ask questions in plain English ("who owns the most books?",
+  "show my 5 most expensive books") and get back a formatted result table plus a
+  natural-language summary. The AI never generates raw SQL — it produces a
+  constrained, whitelist-validated intent object that application code turns into a
+  safe, parameterized query
+- **Library Insights** — auto-generated reading-habit summaries with supporting
+  charts, computed from real statistics first and only phrased by the AI
+  afterward (never AI-invented numbers)
+- **Recommendation Engine** — genre-based book suggestions grounded in real
+  cross-user library data first, falling back to AI-generated suggestions (clearly
+  labeled "unverified") only when there isn't enough data to recommend from
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Node.js, Express, PostgreSQL |
+| Frontend | React (Vite), Tailwind CSS, Recharts |
+| Authentication | JWT, bcrypt |
+| AI | Groq (OpenAI-compatible API), `openai/gpt-oss-120b` |
+| Testing | Jest + Supertest (backend), Vitest + React Testing Library (frontend) |
+| Infrastructure | Docker, Docker Compose, GitHub Actions, Render |
+
+## Testing
+
+150 automated tests across both suites, run on every push and pull request via
+GitHub Actions:
+
 ```bash
-docker compose up -d postgres     # just the database
-cd backend && cp .env.example .env  # fill in GROQ_API_KEY and JWT_SECRET
-npm install && npm run migrate && npm run seed
-cd ../frontend && npm install
-cd .. && npm install               # root: installs "concurrently"
+cd backend && npm test    # 114 tests — unit + integration, external services fully mocked
+cd frontend && npm test   # 36 tests — components, auth context, route guards
 ```
 
-**Every time you want to work:**
-```bash
-npm run dev
-```
-Then open http://localhost:3000. Backend runs on :5000, Postgres on :5432.
+## Running Locally
 
-## Quick start (full Docker)
+**With Docker (recommended — no local installs required):**
 ```bash
-cp .env.example .env               # fill in GROQ_API_KEY
+cp .env.example .env      # add a GROQ_API_KEY
 docker compose up --build
 ```
-Open http://localhost:3000. This builds and runs all three services (Postgres, backend,
-frontend via nginx) in containers — no local `npm install` needed at all.
+Opens the app at `http://localhost:3000`, backend at `:5000`, Postgres at `:5432`.
 
-## Running tests
+**Without Docker:**
 ```bash
-cd backend && npm test    # 89 tests: unit + integration, all AI logic mocked (no API calls)
-cd frontend && npm test   # 31 tests: components, auth context, route guards
+docker compose up -d postgres        # database only
+
+cd backend
+cp .env.example .env                 # add GROQ_API_KEY and JWT_SECRET
+npm install && npm run migrate && npm run seed
+
+cd ../frontend
+npm install
+
+cd ..
+npm install                          # installs "concurrently" at the root
+npm run dev                          # runs backend + frontend together
 ```
-Both suites run automatically on every push/PR via GitHub Actions (`.github/workflows/ci.yml`).
 
 ## Deployment
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for step-by-step instructions to deploy to Render's
-free tier using the included `render.yaml` Blueprint.
 
-## Project structure
+Deployed to [Render](https://render.com) using the included `render.yaml` Blueprint,
+which provisions a PostgreSQL database, the backend web service, and the frontend
+static site together from a single file.
+
+## Project Structure
+
 ```
-backend/    Express API — see backend/src for controllers, models, AI services
-frontend/   React app — see frontend/src for pages, components, context
-docker-compose.yml   Full local stack (Postgres + backend + frontend)
-.github/workflows/ci.yml   Runs backend + frontend tests on every push/PR
-render.yaml           One-click Render deployment blueprint
+backend/                    Express API — controllers, models, AI services, tests
+frontend/                   React app — pages, components, context, tests
+docker-compose.yml          Full local stack (Postgres + backend + frontend)
+render.yaml                 Render Blueprint for one-step deployment
+.github/workflows/ci.yml    Runs backend + frontend test suites on every push/PR
 ```
