@@ -1,34 +1,34 @@
-# Shelf — Library Management System
+# Shelf: Library Management System
 
 A full-stack web application for managing a personal book library, featuring three
 distinct AI-powered capabilities: a natural-language Query Agent, auto-generated
-Library Insights, and a Recommendation Engine — each built with a deliberate
+Library Insights, and a Recommendation Engine, each built with a deliberate
 safety-first integration pattern rather than a generic AI wrapper.
 
 **Live demo:** https://library-frontend-h526.onrender.com
-*(hosted on a free tier — the first request after a period of inactivity may take
-30–60 seconds to wake up)*
+*(hosted on a free tier, so the first request after a period of inactivity may take
+30-60 seconds to wake up)*
 
 ---
 
 ## Key Features
 
-- **Authentication & Authorization** — JWT-based auth with bcrypt password hashing,
+- **Authentication & Authorization**: JWT-based auth with bcrypt password hashing,
   role-based access control (user vs. admin), and enforced server-side ownership
   checks on every write operation
-- **Book Management** — full CRUD with search, sort, and pagination, scoped to the
+- **Book Management**: full CRUD with search, sort, and pagination, scoped to the
   logged-in user (admins see and manage every book across the system)
-- **Admin Dashboard** — manage all registered users and books, with built-in
+- **Admin Dashboard**: manage all registered users and books, with built-in
   safeguards (an admin can't delete their own account or the last remaining admin)
-- **AI Query Agent** — ask questions in plain English ("who owns the most books?",
+- **AI Query Agent**: ask questions in plain English ("who owns the most books?",
   "show my 5 most expensive books") and get back a formatted result table plus a
-  natural-language summary. The AI never generates raw SQL — it produces a
+  natural-language summary. The AI never generates raw SQL; it produces a
   constrained, whitelist-validated intent object that application code turns into a
   safe, parameterized query
-- **Library Insights** — auto-generated reading-habit summaries with supporting
+- **Library Insights**: auto-generated reading-habit summaries with supporting
   charts, computed from real statistics first and only phrased by the AI
   afterward (never AI-invented numbers)
-- **Recommendation Engine** — genre-based book suggestions grounded in real
+- **Recommendation Engine**: genre-based book suggestions grounded in real
   cross-user library data first, falling back to AI-generated suggestions (clearly
   labeled "unverified") only when there isn't enough data to recommend from
 
@@ -49,13 +49,13 @@ safety-first integration pattern rather than a generic AI wrapper.
 GitHub Actions:
 
 ```bash
-cd backend && npm test    # 114 tests — unit + integration, external services fully mocked
-cd frontend && npm test   # 36 tests — components, auth context, route guards
+cd backend && npm test    # 114 tests: unit + integration, external services fully mocked
+cd frontend && npm test   # 36 tests: components, auth context, route guards
 ```
 
 ## Running Locally
 
-**With Docker (recommended — no local installs required):**
+**With Docker (recommended, no local installs required):**
 ```bash
 cp .env.example .env      # add a GROQ_API_KEY
 docker compose up --build
@@ -87,8 +87,8 @@ static site together from a single file.
 ## Project Structure
 
 ```
-backend/                    Express API — controllers, models, AI services, tests
-frontend/                   React app — pages, components, context, tests
+backend/                    Express API: controllers, models, AI services, tests
+frontend/                   React app: pages, components, context, tests
 docker-compose.yml          Full local stack (Postgres + backend + frontend)
 render.yaml                 Render Blueprint for one-step deployment
 .github/workflows/ci.yml    Runs backend + frontend test suites on every push/PR
